@@ -1,4 +1,4 @@
-package utils;/*
+package com.welcome.utils;/*
  * Copyright (C) 2017 Baidu, Inc. All Rights Reserved.
  */
 

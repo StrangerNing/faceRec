@@ -1,3 +1,7 @@
+package com.welcome;
+
+import com.welcome.faceapi.FaceApi;
+import com.welcome.faceapi.impl.FaceApiImpl;
 import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
@@ -13,7 +17,6 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 
 import static org.opencv.core.Core.getTickCount;
-import static org.opencv.core.Core.getTickFrequency;
 import static org.opencv.imgcodecs.Imgcodecs.imwrite;
 import static org.opencv.imgproc.Imgproc.*;
 import static org.opencv.imgproc.Imgproc.equalizeHist;
@@ -27,11 +30,13 @@ import static org.opencv.objdetect.Objdetect.CASCADE_FIND_BIGGEST_OBJECT;
  * @date 2018/11/30
  */
 public class Welcome extends JPanel {
+
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
     private BufferedImage mImg;
+    private FaceApi faceApi = new FaceApiImpl();
     private Boolean isPerson = false;
     private Boolean close = true;
 
@@ -66,7 +71,7 @@ public class Welcome extends JPanel {
         Mat gray = new Mat();
         Mat smallImg = new Mat();
         float searchScaleFactor = 1.1f;
-        int minNeighbors = 1;
+        int minNeighbors = 3;
         //只检测脸最大的人
         int flags = CASCADE_FIND_BIGGEST_OBJECT | CASCADE_DO_ROUGH_SEARCH;
         //检测多个人
@@ -86,7 +91,7 @@ public class Welcome extends JPanel {
         t = (double) getTickCount();
         cascade.detectMultiScale(smallImg, faces, searchScaleFactor, minNeighbors, flags, minFeatureSize, maxFeatureSize);
         t = (double) getTickCount() - t;
-        System.out.println("detect time = " + (t * 1000 / getTickFrequency()) + "ms");
+        //System.out.println("detect time = " + (t * 1000 / getTickFrequency()) + "ms");
 
         Rect[] rects = faces.toArray();
         if (rects != null && rects.length > 0){
@@ -102,14 +107,13 @@ public class Welcome extends JPanel {
         }else {
             isPerson = true;
         }
-        System.out.println("人脸数量："+rects.length);
+        //System.out.println("人脸数量："+rects.length);
         return img;
     }
 
     public static void main(String[] args) {
         try {
-            String accessToken = AuthService.getAuth();
-            System.out.println(accessToken);
+            Welcome panel = new Welcome();
             Mat capImg = new Mat();
             VideoCapture capture = new VideoCapture(0);
             int height = (int)capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
@@ -117,40 +121,8 @@ public class Welcome extends JPanel {
             if (height == 0 && width == 0){
                 throw new Exception("摄像头打开失败");
             }
-            JFrame frame = new JFrame("Welcome");
+            JFrame frame = new JFrame("main.java.com.welcome.Welcome");
             frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-            Welcome panel = new Welcome();
-            panel.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    super.mouseClicked(e);
-                }
-
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    super.mousePressed(e);
-                }
-
-                @Override
-                public void mouseReleased(MouseEvent e) {
-                    super.mouseReleased(e);
-                }
-
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    super.mouseExited(e);
-                }
-
-                @Override
-                public void mouseDragged(MouseEvent e) {
-                    super.mouseDragged(e);
-                }
-
-                @Override
-                public void mouseMoved(MouseEvent e) {
-                    super.mouseMoved(e);
-                }
-            });
             frame.setContentPane(panel);
             frame.setVisible(true);
             frame.setSize(width+frame.getInsets().left+frame.getInsets().right,height+frame.getInsets().top+frame.getInsets().bottom);;
@@ -159,10 +131,9 @@ public class Welcome extends JPanel {
 
             CascadeClassifier faceCascade = new CascadeClassifier();
             double scale = 4;
-            Boolean nRet = false;
 
             /*加载分类器*/
-            nRet = faceCascade.load("haarcascades/haarcascade_frontalface_alt.xml");
+            Boolean nRet = faceCascade.load("haarcascades/haarcascade_frontalface_alt.xml");
             if (!nRet) {
                 System.out.println("加载分类器失败");
             }

@@ -1,4 +1,4 @@
-package utils;
+package com.welcome.utils;
 
 /**
  * Base64 工具类
