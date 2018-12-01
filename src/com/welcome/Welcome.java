@@ -1,7 +1,6 @@
 package com.welcome;
 
 import com.welcome.faceapi.FaceApi;
-import com.welcome.faceapi.impl.FaceApiImpl;
 import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
@@ -11,8 +10,6 @@ import org.opencv.videoio.Videoio;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 
@@ -36,7 +33,6 @@ public class Welcome extends JPanel {
     }
 
     private BufferedImage mImg;
-    private FaceApi faceApi = new FaceApiImpl();
     private Boolean isPerson = false;
     private Boolean close = true;
 
@@ -53,25 +49,26 @@ public class Welcome extends JPanel {
                 data[i + 2] = blue;
             }
         }
-        BufferedImage image = new BufferedImage(mat.cols(),mat.rows(),type);
-        image.getRaster().setDataElements(0,0,mat.cols(),mat.rows(),data);
+        BufferedImage image = new BufferedImage(mat.cols(), mat.rows(), type);
+        image.getRaster().setDataElements(0, 0, mat.cols(), mat.rows(), data);
         return image;
     }
 
     @Override
-    public void paintComponent(Graphics g){
-        if (mImg!=null){
-            g.drawImage(mImg,0,0,mImg.getWidth(),mImg.getHeight(), (ImageObserver) this);
+    public void paintComponent(Graphics g) {
+        if (mImg != null) {
+            g.drawImage(mImg, 0, 0, mImg.getWidth(), mImg.getHeight(), (ImageObserver) this);
         }
     }
 
-    public Mat detect(Mat img, CascadeClassifier cascade, double scale) {
+    public UserInfo detect(Mat img, CascadeClassifier cascade, double scale) {
+        UserInfo userInfo = new UserInfo();
         double t = 0;
         MatOfRect faces = new MatOfRect();
         Mat gray = new Mat();
         Mat smallImg = new Mat();
-        float searchScaleFactor = 1.1f;
-        int minNeighbors = 3;
+        float searchScaleFactor = 1.2f;
+        int minNeighbors = 33;
         //只检测脸最大的人
         int flags = CASCADE_FIND_BIGGEST_OBJECT | CASCADE_DO_ROUGH_SEARCH;
         //检测多个人
@@ -89,48 +86,56 @@ public class Welcome extends JPanel {
 
         //检测目标
         t = (double) getTickCount();
-        cascade.detectMultiScale(smallImg, faces, searchScaleFactor, minNeighbors, flags, minFeatureSize, maxFeatureSize);
+        cascade.detectMultiScale(smallImg, faces);
         t = (double) getTickCount() - t;
         //System.out.println("detect time = " + (t * 1000 / getTickFrequency()) + "ms");
 
         Rect[] rects = faces.toArray();
-        if (rects != null && rects.length > 0){
-            for (Rect rect :rects){
-                Imgproc.rectangle(img,new Point(rect.x*scale,rect.y*scale),new Point((rect.x+rect.width)*scale,(rect.y+rect.height)*scale),
-                        new Scalar(0,255,0),2);
+        if (rects != null && rects.length > 0) {
+            for (Rect rect : rects) {
+                Imgproc.rectangle(img, new Point(rect.x * scale, rect.y * scale), new Point((rect.x + rect.width) * scale, (rect.y + rect.height) * scale),
+                        new Scalar(0, 255, 0), 2);
             }
-            if (isPerson){
-                imwrite("face.jpg",img);
+            if (isPerson) {
+                imwrite("face.jpg", img);
                 System.out.println("人脸已保存");
+                userInfo = FaceRecognition.faceRecog("face.jpg");
+
                 isPerson = false;
             }
-        }else {
+        } else {
             isPerson = true;
         }
         //System.out.println("人脸数量："+rects.length);
-        return img;
+        userInfo.setImg(img);
+        return userInfo;
     }
 
     public static void main(String[] args) {
         try {
+            if (!FaceApi.getAuth()) {
+                throw new RuntimeException("获取accessToken失败");
+            }
+            FaceApi.groupDelete("FaceWelcome");
+            FaceApi.groupAdd("FaceWelcome");
             Welcome panel = new Welcome();
             Mat capImg = new Mat();
             VideoCapture capture = new VideoCapture(0);
-            int height = (int)capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
-            int width = (int)capture.get(Videoio.CAP_PROP_FRAME_WIDTH);
-            if (height == 0 && width == 0){
+            int height = (int) capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
+            int width = (int) capture.get(Videoio.CAP_PROP_FRAME_WIDTH);
+            if (height == 0 && width == 0) {
                 throw new Exception("摄像头打开失败");
             }
-            JFrame frame = new JFrame("main.java.com.welcome.Welcome");
+            JFrame frame = new JFrame("Welcome");
             frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
             frame.setContentPane(panel);
             frame.setVisible(true);
-            frame.setSize(width+frame.getInsets().left+frame.getInsets().right,height+frame.getInsets().top+frame.getInsets().bottom);;
-            int n = 0;
+            frame.setSize(width + frame.getInsets().left + frame.getInsets().right, height + frame.getInsets().top + frame.getInsets().bottom);
+
             Mat temp = new Mat();
 
             CascadeClassifier faceCascade = new CascadeClassifier();
-            double scale = 4;
+            double scale = 2;
 
             /*加载分类器*/
             Boolean nRet = faceCascade.load("haarcascades/haarcascade_frontalface_alt.xml");
@@ -138,16 +143,17 @@ public class Welcome extends JPanel {
                 System.out.println("加载分类器失败");
             }
 
-            while (panel.close){
+            while (panel.close) {
                 capture.read(capImg);
-                Imgproc.cvtColor(capImg,temp,Imgproc.COLOR_RGB2GRAY);
-                panel.mImg=panel.mat2BI(panel.detect(capImg,faceCascade,scale));
+                Imgproc.cvtColor(capImg, temp, Imgproc.COLOR_RGB2GRAY);
+                UserInfo userInfo = panel.detect(capImg, faceCascade, scale);
+                panel.mImg = panel.mat2BI(userInfo.getImg());
                 panel.repaint();
             }
             capture.release();
             frame.dispose();
-        }catch (Exception e){
-            System.out.println("ERROR:"+e);
+        } catch (Exception e) {
+            System.out.println("ERROR:" + e);
         }
     }
 
