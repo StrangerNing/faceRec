@@ -1,6 +1,6 @@
 package com.welcome.faceapi;
 
-import com.welcome.FaceForm;
+import com.welcome.form.FaceForm;
 import com.welcome.utils.GsonUtils;
 import com.welcome.utils.HttpUtil;
 import net.sf.json.JSONObject;

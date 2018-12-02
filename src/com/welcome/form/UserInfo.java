@@ -1,4 +1,4 @@
-package com.welcome;
+package com.welcome.form;
 
 import org.opencv.core.Mat;
 

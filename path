@@ -1,1 +1,3 @@
 -Djava.library.path=E:/opencv/build/java/x64;E:/opencv/build/x64/vc15/bin
+
+-Djava.library.path=E:/faceRec/opencv/

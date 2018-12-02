@@ -1,6 +1,8 @@
 package com.welcome;
 
 import com.welcome.faceapi.FaceApi;
+import com.welcome.form.FaceForm;
+import com.welcome.form.UserInfo;
 import com.welcome.utils.Base64Util;
 import com.welcome.utils.FileUtil;
 import net.sf.json.JSONObject;
@@ -13,12 +15,12 @@ import java.util.concurrent.Callable;
  * @version 1.0
  * @date 2018/12/1
  */
-public class FaceRecognition implements Callable<UserInfo> {
+public class FaceRecognition implements Callable<com.welcome.form.UserInfo> {
     private Integer oneHour = 60*60*1000;
     private Integer tenSec = 10*1000;
 
     @Override
-    public UserInfo call() {
+    public com.welcome.form.UserInfo call() {
         try {
             //变量预定义
             String userId = "";
@@ -87,7 +89,7 @@ public class FaceRecognition implements Callable<UserInfo> {
             }
             JSONObject  updateResultJson = JSONObject.fromObject(operationResult);
             if (updateResultJson.getString("error_msg").equals("SUCCESS")) {
-                UserInfo userInfo = new UserInfo();
+                UserInfo userInfo = new com.welcome.form.UserInfo();
                 userInfo.setUserId(userId);
                 userInfo.setCreateTime(createTime);
                 userInfo.setUpdateTime(updateTime);

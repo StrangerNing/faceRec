@@ -1,6 +1,7 @@
 package com.welcome;
 
 import com.welcome.faceapi.FaceApi;
+import com.welcome.form.UserInfo;
 import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
@@ -15,7 +16,6 @@ import java.awt.image.ImageObserver;
 import java.util.concurrent.FutureTask;
 
 import static org.opencv.core.Core.getTickCount;
-import static org.opencv.core.Core.getTickFrequency;
 import static org.opencv.imgcodecs.Imgcodecs.imwrite;
 import static org.opencv.imgproc.Imgproc.*;
 import static org.opencv.imgproc.Imgproc.equalizeHist;
@@ -31,6 +31,9 @@ import static org.opencv.objdetect.Objdetect.CASCADE_FIND_BIGGEST_OBJECT;
 public class Welcome extends JPanel {
 
     static {
+        //加载动态库
+        //System.load("E:/faceRec/opencv/opencv_java342.dll");
+        //System.load("E:/faceRec/opencv/opencv_world342.dll");
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
@@ -120,6 +123,7 @@ public class Welcome extends JPanel {
 
     public static void main(String[] args) {
         try {
+
             if (!FaceApi.getAuth()) {
                 throw new RuntimeException("获取accessToken失败");
             }
