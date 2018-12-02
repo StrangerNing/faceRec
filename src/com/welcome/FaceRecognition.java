@@ -6,14 +6,19 @@ import com.welcome.utils.FileUtil;
 import net.sf.json.JSONObject;
 
 import java.util.Date;
+import java.util.concurrent.Callable;
 
 /**
  * @author Tsening Chu
  * @version 1.0
  * @date 2018/12/1
  */
-public class FaceRecognition {
-    public static UserInfo faceRecog(String filePath) {
+public class FaceRecognition implements Callable<UserInfo> {
+    private Integer oneHour = 60*60*1000;
+    private Integer tenSec = 10*1000;
+
+    @Override
+    public UserInfo call() {
         try {
             //变量预定义
             String userId = "";
@@ -22,7 +27,7 @@ public class FaceRecognition {
             Long updateTime = 0L;
             Integer visitedTimes = 0;
 
-            String imgBase64 = Base64Util.encode(FileUtil.readFileByBytes(filePath));
+            String imgBase64 = Base64Util.encode(FileUtil.readFileByBytes("face.jpg"));
             FaceForm faceForm = new FaceForm();
             faceForm.setImage(imgBase64);
             faceForm.setLivenessControl("LOW");
@@ -70,16 +75,17 @@ public class FaceRecognition {
 
                 //如果用户在一小时内来过，那么只算来过一次，否则更新光临次数
                 Long newUpdateTime = new Date().getTime();
-                if ((updateTime + (60 * 60 * 1000)) < newUpdateTime) {
+                if ((updateTime + (this.tenSec)) < newUpdateTime) {
                     faceForm.setUserId(userId);
                     faceForm.setUserInfo("{\"create_time\":" + createTime +
                             ",\"update_time\":" + newUpdateTime +
                             ",\"visited_times\":" + (++visitedTimes) + "}");
                     operationResult = FaceApi.faceUpdate(faceForm);
-
+                }else {
+                    operationResult = searchResult;
                 }
             }
-            JSONObject updateResultJson = JSONObject.fromObject(operationResult);
+            JSONObject  updateResultJson = JSONObject.fromObject(operationResult);
             if (updateResultJson.getString("error_msg").equals("SUCCESS")) {
                 UserInfo userInfo = new UserInfo();
                 userInfo.setUserId(userId);
@@ -92,8 +98,9 @@ public class FaceRecognition {
             }
 
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("ERROR:" + e);
         }
-        return null;
+        return new UserInfo();
     }
 }

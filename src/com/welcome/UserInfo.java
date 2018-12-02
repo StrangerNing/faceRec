@@ -14,7 +14,6 @@ public class UserInfo {
     private Date createTime;
     private Date updateTime;
     private Integer visitedTimes;
-    private Mat img;
 
     public String getUserId() {
         return userId;
@@ -48,13 +47,4 @@ public class UserInfo {
         this.visitedTimes = visitedTimes;
     }
 
-    public Mat getImg() {
-        return img;
-    }
-
-    public void setImg(Mat img) {
-        if (img != null) {
-            this.img = img;
-        }
-    }
 }

@@ -12,8 +12,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
+import java.util.concurrent.FutureTask;
 
 import static org.opencv.core.Core.getTickCount;
+import static org.opencv.core.Core.getTickFrequency;
 import static org.opencv.imgcodecs.Imgcodecs.imwrite;
 import static org.opencv.imgproc.Imgproc.*;
 import static org.opencv.imgproc.Imgproc.equalizeHist;
@@ -35,6 +37,7 @@ public class Welcome extends JPanel {
     private BufferedImage mImg;
     private Boolean isPerson = false;
     private Boolean close = true;
+    private UserInfo userInfo = new UserInfo();
 
     private BufferedImage mat2BI(Mat mat) {
         int dataSize = mat.cols() * mat.rows() * (int) mat.elemSize();
@@ -61,54 +64,58 @@ public class Welcome extends JPanel {
         }
     }
 
-    public UserInfo detect(Mat img, CascadeClassifier cascade, double scale) {
-        UserInfo userInfo = new UserInfo();
-        double t = 0;
-        MatOfRect faces = new MatOfRect();
-        Mat gray = new Mat();
-        Mat smallImg = new Mat();
-        float searchScaleFactor = 1.2f;
-        int minNeighbors = 33;
-        //只检测脸最大的人
-        int flags = CASCADE_FIND_BIGGEST_OBJECT | CASCADE_DO_ROUGH_SEARCH;
-        //检测多个人
-        //int flags = CASCADE_SCALE_IMAGE;
-        Size minFeatureSize = new Size(30, 30);
-        Size maxFeatureSize = new Size(1000, 1000);
-        double fx = 1 / scale;
+    public Mat detect(Mat img, CascadeClassifier cascade, double scale) {
+        try {
+            double t = 0;
+            MatOfRect faces = new MatOfRect();
+            Mat gray = new Mat();
+            Mat smallImg = new Mat();
+            float searchScaleFactor = 1.2f;
+            int minNeighbors = 3;
+            //只检测脸最大的人
+            int flags = CASCADE_FIND_BIGGEST_OBJECT | CASCADE_DO_ROUGH_SEARCH;
+            //检测多个人
+            //int flags = CASCADE_SCALE_IMAGE;
+            Size minFeatureSize = new Size(30, 30);
+            Size maxFeatureSize = new Size(1000, 1000);
+            double fx = 1 / scale;
 
-        //将原图像转为灰度图
-        cvtColor(img, gray, COLOR_BGR2GRAY);
-        //缩放图像
-        Imgproc.resize(gray, smallImg, new Size(), fx, fx, INTER_LINEAR_EXACT);
-        //直方图均衡化，提高图像质量
-        equalizeHist(smallImg, smallImg);
+            //将原图像转为灰度图
+            cvtColor(img, gray, COLOR_BGR2GRAY);
+            //缩放图像
+            Imgproc.resize(gray, smallImg, new Size(), fx, fx, INTER_LINEAR_EXACT);
+            //直方图均衡化，提高图像质量
+            equalizeHist(smallImg, smallImg);
 
-        //检测目标
-        t = (double) getTickCount();
-        cascade.detectMultiScale(smallImg, faces);
-        t = (double) getTickCount() - t;
-        //System.out.println("detect time = " + (t * 1000 / getTickFrequency()) + "ms");
+            //检测目标
+            t = (double) getTickCount();
+            cascade.detectMultiScale(smallImg, faces, searchScaleFactor, minNeighbors, flags, minFeatureSize, maxFeatureSize);
+            t = (double) getTickCount() - t;
+            //System.out.println("detect time = " + (t * 1000 / getTickFrequency()) + "ms");
 
-        Rect[] rects = faces.toArray();
-        if (rects != null && rects.length > 0) {
-            for (Rect rect : rects) {
-                Imgproc.rectangle(img, new Point(rect.x * scale, rect.y * scale), new Point((rect.x + rect.width) * scale, (rect.y + rect.height) * scale),
-                        new Scalar(0, 255, 0), 2);
+            Rect[] rects = faces.toArray();
+            if (rects != null && rects.length > 0) {
+                for (Rect rect : rects) {
+                    Imgproc.rectangle(img, new Point(rect.x * scale, rect.y * scale), new Point((rect.x + rect.width) * scale, (rect.y + rect.height) * scale),
+                            new Scalar(0, 255, 0), 2);
+                }
+                if (isPerson) {
+                    imwrite("face.jpg", img);
+                    System.out.println("人脸已保存");
+                    FutureTask<UserInfo> futureTask = new FutureTask<>(new FaceRecognition());
+                    new Thread(futureTask).start();
+                    this.userInfo = futureTask.get();
+                    isPerson = false;
+                }
+            } else {
+                isPerson = true;
             }
-            if (isPerson) {
-                imwrite("face.jpg", img);
-                System.out.println("人脸已保存");
-                userInfo = FaceRecognition.faceRecog("face.jpg");
-
-                isPerson = false;
-            }
-        } else {
-            isPerson = true;
+            //System.out.println("人脸数量："+rects.length);
+        }catch (Exception e){
+            System.out.println("error:"+e);
         }
-        //System.out.println("人脸数量："+rects.length);
-        userInfo.setImg(img);
-        return userInfo;
+
+        return img;
     }
 
     public static void main(String[] args) {
@@ -116,7 +123,7 @@ public class Welcome extends JPanel {
             if (!FaceApi.getAuth()) {
                 throw new RuntimeException("获取accessToken失败");
             }
-            FaceApi.groupDelete("FaceWelcome");
+            //FaceApi.groupDelete("FaceWelcome");
             FaceApi.groupAdd("FaceWelcome");
             Welcome panel = new Welcome();
             Mat capImg = new Mat();
@@ -132,22 +139,30 @@ public class Welcome extends JPanel {
             frame.setVisible(true);
             frame.setSize(width + frame.getInsets().left + frame.getInsets().right, height + frame.getInsets().top + frame.getInsets().bottom);
 
+            JLabel label = new JLabel();
+            label.setFont(new Font("仿宋",Font.BOLD,30));
+            panel.setLayout(null);
+            label.setBounds(5,10,500, 50 );
+            panel.add(label);
+
             Mat temp = new Mat();
 
             CascadeClassifier faceCascade = new CascadeClassifier();
-            double scale = 2;
+            double scale = 4;
 
             /*加载分类器*/
-            Boolean nRet = faceCascade.load("haarcascades/haarcascade_frontalface_alt.xml");
+            Boolean nRet = faceCascade.load("haarcascades/haarcascade_frontalface_default.xml");
             if (!nRet) {
                 System.out.println("加载分类器失败");
             }
 
             while (panel.close) {
+                if (panel.userInfo.getUserId()!=null) {
+                    label.setText("欢迎，" + panel.userInfo.getUserId() + " 第" + panel.userInfo.getVisitedTimes() + "次光临");
+                }
                 capture.read(capImg);
                 Imgproc.cvtColor(capImg, temp, Imgproc.COLOR_RGB2GRAY);
-                UserInfo userInfo = panel.detect(capImg, faceCascade, scale);
-                panel.mImg = panel.mat2BI(userInfo.getImg());
+                panel.mImg = panel.mat2BI(panel.detect(capImg, faceCascade, scale));
                 panel.repaint();
             }
             capture.release();
