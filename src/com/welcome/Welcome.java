@@ -13,7 +13,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
-import java.util.concurrent.FutureTask;
+import java.util.concurrent.*;
 
 import static org.opencv.core.Core.getTickCount;
 import static org.opencv.imgcodecs.Imgcodecs.imwrite;
@@ -32,8 +32,7 @@ public class Welcome extends JPanel {
 
     static {
         //加载动态库
-        //System.load("E:/faceRec/opencv/opencv_java342.dll");
-        //System.load("E:/faceRec/opencv/opencv_world342.dll");
+        //System.load("D:/vip_welcome/faceRec/opencv/opencv_java342.dll");
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
@@ -41,6 +40,7 @@ public class Welcome extends JPanel {
     private Boolean isPerson = false;
     private Boolean close = true;
     private UserInfo userInfo = new UserInfo();
+    private ThreadPoolExecutor pool = new ThreadPoolExecutor(5,15,5,TimeUnit.SECONDS,new LinkedBlockingDeque<>());
 
     private BufferedImage mat2BI(Mat mat) {
         int dataSize = mat.cols() * mat.rows() * (int) mat.elemSize();
@@ -91,10 +91,7 @@ public class Welcome extends JPanel {
             equalizeHist(smallImg, smallImg);
 
             //检测目标
-            t = (double) getTickCount();
             cascade.detectMultiScale(smallImg, faces, searchScaleFactor, minNeighbors, flags, minFeatureSize, maxFeatureSize);
-            t = (double) getTickCount() - t;
-            //System.out.println("detect time = " + (t * 1000 / getTickFrequency()) + "ms");
 
             Rect[] rects = faces.toArray();
             if (rects != null && rects.length > 0) {
@@ -106,14 +103,13 @@ public class Welcome extends JPanel {
                     imwrite("face.jpg", img);
                     System.out.println("人脸已保存");
                     FutureTask<UserInfo> futureTask = new FutureTask<>(new FaceRecognition());
-                    new Thread(futureTask).start();
+                    pool.execute(futureTask);
                     this.userInfo = futureTask.get();
                     isPerson = false;
                 }
             } else {
                 isPerson = true;
             }
-            //System.out.println("人脸数量："+rects.length);
         }catch (Exception e){
             System.out.println("error:"+e);
         }
