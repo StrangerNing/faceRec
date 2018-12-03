@@ -13,9 +13,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
+import java.util.ArrayList;
 import java.util.concurrent.*;
 
-import static org.opencv.core.Core.getTickCount;
 import static org.opencv.imgcodecs.Imgcodecs.imwrite;
 import static org.opencv.imgproc.Imgproc.*;
 import static org.opencv.imgproc.Imgproc.equalizeHist;
@@ -41,6 +41,7 @@ public class Welcome extends JPanel {
     private Boolean close = true;
     private UserInfo userInfo = new UserInfo();
     private ThreadPoolExecutor pool = new ThreadPoolExecutor(5,15,5,TimeUnit.SECONDS,new LinkedBlockingDeque<>());
+    private ArrayList<Future<UserInfo>> futures = new ArrayList<>();
 
     private BufferedImage mat2BI(Mat mat) {
         int dataSize = mat.cols() * mat.rows() * (int) mat.elemSize();
@@ -102,14 +103,13 @@ public class Welcome extends JPanel {
                 if (isPerson) {
                     imwrite("face.jpg", img);
                     System.out.println("人脸已保存");
-                    FutureTask<UserInfo> futureTask = new FutureTask<>(new FaceRecognition());
-                    pool.execute(futureTask);
-                    this.userInfo = futureTask.get();
+                    futures.add(pool.submit(new FaceRecognition()));
                     isPerson = false;
                 }
             } else {
                 isPerson = true;
             }
+
         }catch (Exception e){
             System.out.println("error:"+e);
         }
@@ -123,7 +123,7 @@ public class Welcome extends JPanel {
             if (!FaceApi.getAuth()) {
                 throw new RuntimeException("获取accessToken失败");
             }
-            //FaceApi.groupDelete("FaceWelcome");
+            FaceApi.groupDelete("FaceWelcome");
             FaceApi.groupAdd("FaceWelcome");
             Welcome panel = new Welcome();
             Mat capImg = new Mat();
@@ -157,6 +157,10 @@ public class Welcome extends JPanel {
             }
 
             while (panel.close) {
+                if (!panel.futures.isEmpty()){
+                    panel.userInfo = panel.futures.get(0).get();
+                    panel.futures.remove(0);
+                }
                 if (panel.userInfo.getUserId()!=null) {
                     label.setText("欢迎，" + panel.userInfo.getUserId() + " 第" + panel.userInfo.getVisitedTimes() + "次光临");
                 }
